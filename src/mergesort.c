@@ -50,16 +50,61 @@ void merge(uint64_t *T, const uint64_t size) {
 */
 
 void sequential_merge_sort(uint64_t *T, const uint64_t size) {
-    /* TODO: sequential implementation of merge sort */
+    if (size < 2) return; // Base case
 
-    return;
+    uint64_t mid = size / 2;
+
+    sequential_merge_sort(T, mid);
+    sequential_merge_sort(T + mid, size - mid);
+
+    merge(T, mid);
 }
 
-void parallel_merge_sort(uint64_t *T, const uint64_t size) {
-    /* TODO: parallel implementation of merge sort */
+// void parallel_merge_sort(uint64_t *T, const uint64_t size) {
+//     if (size < 2) return;               // base case
 
-    return;
+//     uint64_t mid = size / 2;
+
+//     #pragma omp parallel
+//     {
+//         #pragma omp single nowait
+//         {
+//             #pragma omp task
+//             parallel_merge_sort(T, mid);
+
+//             #pragma omp task
+//             parallel_merge_sort(T + mid, size - mid);
+
+//             #pragma omp taskwait
+//         }
+//     }
+
+//     merge(T, mid);
+// }
+
+void parallel_merge_sort_optimized(uint64_t *T, const uint64_t size) {
+    int num_threads = omp_get_max_threads();
+    if (size < (1024 / num_threads)) {  //adaptative treshold
+        sequential_merge_sort(T, size);
+        return;
+    }
+    uint64_t mid = size / 2;
+    #pragma omp parallel
+    {
+        #pragma omp single nowait
+        {
+            #pragma omp task
+            parallel_merge_sort_optimized(T, mid);
+
+            #pragma omp task
+            parallel_merge_sort_optimized(T + mid, size - mid);
+
+            #pragma omp taskwait
+        }
+    }
+    merge(T, mid);  
 }
+
 
 int main(int argc, char **argv) {
     // Init cpu_stats to measure CPU cycles and elapsed time
@@ -123,7 +168,8 @@ int main(int argc, char **argv) {
 
         cpu_stats_begin(stats);
 
-        parallel_merge_sort(X, N);
+        /* parallel_merge_sort(X, N); */
+        parallel_merge_sort_optimized(X, N);
 
         experiments[exp] = cpu_stats_end(stats);
 
@@ -160,7 +206,8 @@ int main(int argc, char **argv) {
     memcpy(Z, Y, N * sizeof(uint64_t));
 
     sequential_merge_sort(Y, N);
-    parallel_merge_sort(Z, N);
+    /* parallel_merge_sort(Z, N); */
+    parallel_merge_sort_optimized(Z, N);
 
     if (!are_vector_equals(Y, Z, N)) {
         fprintf(stderr, "ERROR: sorting with the sequential and the parallel algorithm does not give the same result\n");
