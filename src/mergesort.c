@@ -83,13 +83,12 @@ void sequential_merge_sort(uint64_t *T, const uint64_t size) {
 // }
 
 void parallel_merge_sort_optimized(uint64_t *T, const uint64_t size) {
-    if (size < 64) {  // Only use tasks for large subarrays
+    int num_threads = omp_get_max_threads();
+    if (size < (1024 / num_threads)) {  //adaptative treshold
         sequential_merge_sort(T, size);
         return;
     }
-
     uint64_t mid = size / 2;
-
     #pragma omp parallel
     {
         #pragma omp single nowait
@@ -103,7 +102,6 @@ void parallel_merge_sort_optimized(uint64_t *T, const uint64_t size) {
             #pragma omp taskwait
         }
     }
-
     merge(T, mid);  
 }
 
@@ -170,7 +168,8 @@ int main(int argc, char **argv) {
 
         cpu_stats_begin(stats);
 
-        parallel_merge_sort(X, N);
+        /* parallel_merge_sort(X, N); */
+        parallel_merge_sort_optimized(X, N);
 
         experiments[exp] = cpu_stats_end(stats);
 
@@ -207,7 +206,8 @@ int main(int argc, char **argv) {
     memcpy(Z, Y, N * sizeof(uint64_t));
 
     sequential_merge_sort(Y, N);
-    parallel_merge_sort(Z, N);
+    /* parallel_merge_sort(Z, N); */
+    parallel_merge_sort_optimized(Z, N);
 
     if (!are_vector_equals(Y, Z, N)) {
         fprintf(stderr, "ERROR: sorting with the sequential and the parallel algorithm does not give the same result\n");
